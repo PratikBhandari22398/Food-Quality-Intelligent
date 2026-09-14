@@ -59,40 +59,34 @@ class DecisionEngine:
 
         if det_lower == "other object" or "other object" in det_lower:
             checklist["Product Detection"] = "❌"
-            checklist["Product Match"] = "❌"
+            if not is_general_inspection:
+                checklist["Product Match"] = "❌"
             escalate_status(
                 "HOLD",
-                "Product Verification Failed: Not a supported food product (No supported food product detected).",
+                "No supported food product detected.",
                 "Remove non-food object from production inspection line."
             )
 
         # -------------------------------------------------------------
-        # 2. Category Mismatch & Product Verification Rules
+        # 2. Category Mismatch & Product Verification Rules (Explicit Mode Only)
         # -------------------------------------------------------------
-        elif not is_general_inspection and det_category != "Other" and exp_category != "Other" and det_category != exp_category:
-            checklist["Product Match"] = "❌"
-            escalate_status(
-                "HOLD",
-                f"Product Verification Failed: Expected product category '{exp_category}' does not match detected product category '{det_category}'.",
-                "Ensure correct product category package is placed on inspection line."
-            )
+        elif not is_general_inspection:
+            if (det_category != "Other" and exp_category != "Other" and det_category != exp_category) or (exp_lower != det_lower and det_lower != "other food product"):
+                checklist["Product Match"] = "❌"
+                escalate_status(
+                    "HOLD",
+                    "Expected and detected products do not match.",
+                    "Human verification required. Confirm physical batch product match."
+                )
 
-        elif not is_general_inspection and exp_lower != det_lower and det_lower != "other food product":
-            checklist["Product Match"] = "❌"
-            escalate_status(
-                "HOLD",
-                f"Product Verification Failed: Expected '{expected_product}' but AI detected '{detected_product}' ({product_confidence*100:.1f}% confidence).",
-                "Human verification required. Confirm physical batch product match."
-            )
-
-        elif det_lower == "other food product":
+        if det_lower == "other food product":
             checklist["Product Match"] = "⚠"
             escalate_status(
                 "WARNING",
                 "Product recognized: Other Food Product. detailed verification data is unavailable for unconfigured product.",
                 "Select or configure product profile manually."
             )
-        elif product_confidence < 0.65:
+        elif product_confidence < 0.65 and det_lower != "other object" and "other object" not in det_lower:
             checklist["Product Detection"] = "⚠"
             escalate_status(
                 "WARNING",
@@ -108,14 +102,14 @@ class DecisionEngine:
             checklist["Package Condition"] = "❌"
             escalate_status(
                 "REJECT",
-                f"Package Defect: AI detected Damaged Package ({condition_confidence*100:.1f}% confidence).",
+                "Visible package damage detected.",
                 "Remove/inspect product according to manufacturing procedure."
             )
         elif "unclear" in cond_lower or condition_confidence < 0.65:
             checklist["Package Condition"] = "⚠"
             escalate_status(
                 "WARNING",
-                f"Package Condition Unclear: AI confidence is {condition_confidence*100:.1f}%.",
+                "Package condition could not be verified clearly.",
                 "Capture another image of package condition."
             )
 
@@ -182,9 +176,9 @@ class DecisionEngine:
                     "Verify physical expiration date manually."
                 )
 
-            # Product Name Consistency (AI vs OCR vs Expected)
+            # Product Name Consistency (AI vs OCR vs Expected - Explicit Mode Only)
             ocr_pname = ocr_data.get("product_name")
-            if ocr_pname and ocr_pname not in ("Not Clearly Read", "Not detected"):
+            if not is_general_inspection and ocr_pname and ocr_pname not in ("Not Clearly Read", "Not detected"):
                 ocr_pname_lower = ocr_pname.lower()
                 if not (exp_lower in ocr_pname_lower or ocr_pname_lower in exp_lower or det_lower in ocr_pname_lower):
                     checklist["Product Match"] = "❌"
@@ -291,7 +285,15 @@ class DecisionEngine:
         # 6. Final Status & Summary Card Construction
         # -------------------------------------------------------------
         if current_status == "PASS":
-            reasons.insert(0, "All configured inspection checks passed successfully.")
+            if is_general_inspection:
+                if "milk" in det_lower:
+                    reasons.insert(0, "Milk pouch detected and package condition appears normal.")
+                elif "chips" in det_lower:
+                    reasons.insert(0, "Chips packet detected and package condition appears normal.")
+                else:
+                    reasons.insert(0, "Product detected and package condition appears normal.")
+            else:
+                reasons.insert(0, "All configured inspection checks passed successfully.")
             checklist["Final Decision"] = "✅ PASS"
         elif current_status == "WARNING":
             checklist["Final Decision"] = "⚠ WARNING"
@@ -300,20 +302,26 @@ class DecisionEngine:
         elif current_status == "REJECT":
             checklist["Final Decision"] = "❌ REJECT"
 
+        # Determine nutrition profile automatically based on detected product in General mode
+        nutr_key = detected_product if (is_general_inspection or not expected_product) else expected_product
         raw_nutr = DEFAULT_NUTRITION_PROFILES.get(
-            detected_product,
-            DEFAULT_NUTRITION_PROFILES.get(expected_product, DEFAULT_NUTRITION_PROFILES.get("Chips Packet", {}))
+            nutr_key,
+            DEFAULT_NUTRITION_PROFILES.get(detected_product, DEFAULT_NUTRITION_PROFILES.get("Chips Packet", {}))
         )
         verified_nutrition = dict(raw_nutr) if isinstance(raw_nutr, dict) else {}
         if "nutrition_table" in verified_nutrition and isinstance(verified_nutrition["nutrition_table"], dict):
             verified_nutrition.update(verified_nutrition["nutrition_table"])
+
+        b_num_display = batch_number or (ocr_data.get("batch_number") if ocr_data else None)
+        if is_general_inspection and not batch_number:
+            b_num_display = "N/A"
 
         summary_card = {
             "status": current_status,
             "overall_reason": reasons[0] if reasons else "Inspection completed.",
             "product_confidence": f"{product_confidence*100:.1f}%",
             "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "batch_number": batch_number or (ocr_data.get("batch_number") if ocr_data else "General Batch"),
+            "batch_number": b_num_display or "N/A",
             "detected_product": detected_product,
             "package_condition": packaging_condition,
             "recommended_action": recommended_action

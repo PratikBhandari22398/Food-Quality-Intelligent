@@ -714,8 +714,10 @@ async function loadProducts() {
     const batchProdSelect = document.getElementById("batch-product-select");
     
     if (select) {
-      select.innerHTML = data.map(p => `<option value="${p.name}">${p.name}</option>`).join("");
-      toggleMilkParamsDrawer(data[0]?.name || "");
+      select.innerHTML = `<option value="Not Specified">Not Specified (General Inspection)</option>` +
+        data.map(p => `<option value="${p.name}">${p.name}</option>`).join("");
+      select.value = "Not Specified";
+      toggleMilkParamsDrawer("Not Specified");
     }
     if (batchProdSelect) {
       batchProdSelect.innerHTML = data.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
@@ -1050,7 +1052,7 @@ async function runEvaluationWithData(expectedProduct, aiResult, ocrData) {
     condition_confidence: aiResult.conditionConfidence,
     ocr_data: ocrData,
     milk_lab_params: milkParams,
-    batch_number: state.activeBatch?.batch_number
+    batch_number: (expectedProduct === "Not Specified" || !expectedProduct) ? null : state.activeBatch?.batch_number
   };
 
   try {
@@ -1194,6 +1196,12 @@ function resetInspectionState() {
   state.capturedImageBase64 = null;
   state.ocrExtractedData = null;
   state.inspectionSavedForCurrentRun = false;
+
+  const prodSelect = document.getElementById("inspect-expected-product");
+  if (prodSelect) {
+    prodSelect.value = "Not Specified";
+    toggleMilkParamsDrawer("Not Specified");
+  }
 
   if (window.cameraHandler) {
     window.cameraHandler.resetViewport();
@@ -1458,9 +1466,11 @@ async function saveCurrentInspection() {
   const btnSave = document.getElementById("btn-save-inspection");
   if (btnSave) btnSave.disabled = true;
 
+  const expProd = state.currentInspectionResult?.expected_product || "Not Specified";
+  const isGen = expProd === "Not Specified" || !expProd;
   const payload = {
     ...state.currentInspectionResult,
-    batch_id: state.activeBatch?.id,
+    batch_id: isGen ? null : state.activeBatch?.id,
     image_base64: state.capturedImageBase64
   };
 

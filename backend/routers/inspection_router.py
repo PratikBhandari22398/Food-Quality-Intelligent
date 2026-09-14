@@ -231,9 +231,13 @@ def save_inspection(req: InspectionSaveRequest, db: Session = Depends(get_db)):
         except Exception as e:
             print(f"Error saving image snapshot: {e}")
 
-    batch_id = req.batch_id
-    batch_number_val = req.batch_number
-    if not batch_id and batch_number_val:
+    exp_lower = (req.expected_product or "").strip().lower()
+    is_general = exp_lower in ["", "none", "not specified", "n/a", "unspecified"]
+
+    batch_id = None if is_general else req.batch_id
+    batch_number_val = None if is_general else req.batch_number
+
+    if not is_general and not batch_id and batch_number_val:
         b = db.query(Batch).filter(Batch.batch_number == batch_number_val).first()
         if b:
             batch_id = b.id
@@ -261,7 +265,7 @@ def save_inspection(req: InspectionSaveRequest, db: Session = Depends(get_db)):
     if eval_res["final_status"] in ("WARNING", "HOLD", "REJECT"):
         new_alert = Alert(
             inspection_id=new_inspection.id,
-            batch_number=batch_number_val or "General Batch",
+            batch_number=batch_number_val or "N/A",
             product_name=req.expected_product,
             status=eval_res["final_status"],
             reason=eval_res["reasons"][0] if eval_res["reasons"] else "Quality alert triggered.",
@@ -273,7 +277,7 @@ def save_inspection(req: InspectionSaveRequest, db: Session = Depends(get_db)):
     return InspectionResponse(
         id=new_inspection.id,
         batch_id=new_inspection.batch_id,
-        batch_number=batch_number_val,
+        batch_number=batch_number_val or "N/A",
         image_path=new_inspection.image_path,
         expected_product=new_inspection.expected_product,
         detected_product=new_inspection.detected_product,
@@ -315,7 +319,7 @@ def submit_human_review(
     db.commit()
     db.refresh(insp)
 
-    b_num = insp.batch.batch_number if insp.batch else "General Batch"
+    b_num = insp.batch.batch_number if insp.batch else "N/A"
     return InspectionResponse(
         id=insp.id,
         batch_id=insp.batch_id,
@@ -362,7 +366,7 @@ def get_inspections(
 
     result = []
     for insp in inspections:
-        b_num = insp.batch.batch_number if insp.batch else "General Batch"
+        b_num = insp.batch.batch_number if insp.batch else "N/A"
         result.append(InspectionResponse(
             id=insp.id,
             batch_id=insp.batch_id,
@@ -391,7 +395,7 @@ def get_inspection_detail(inspection_id: int, db: Session = Depends(get_db)):
     if not insp:
         raise HTTPException(status_code=404, detail="Inspection record not found.")
 
-    b_num = insp.batch.batch_number if insp.batch else "General Batch"
+    b_num = insp.batch.batch_number if insp.batch else "N/A"
     return InspectionResponse(
         id=insp.id,
         batch_id=insp.batch_id,
