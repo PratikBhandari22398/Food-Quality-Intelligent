@@ -839,7 +839,7 @@ async function runFullInspectionPipeline(imageBase64) {
   state.inspectionSavedForCurrentRun = false;
   state.lastSavedInspectionId = null;
 
-  const expectedProduct = document.getElementById("inspect-expected-product")?.value || "Chips Packet";
+  const expectedProduct = document.getElementById("inspect-expected-product")?.value || "Not Specified";
   
   let targetElement;
   try {
@@ -911,6 +911,21 @@ function updateAIBadges(aiResult) {
   if (cName) cName.innerText = aiResult.packagingCondition;
   if (cConf) cConf.innerText = `${(aiResult.conditionConfidence * 100).toFixed(1)}%`;
   if (cBar) cBar.style.width = `${aiResult.conditionConfidence * 100}%`;
+
+  // Render Developer Diagnostics Raw Probabilities (PART W)
+  const diagModel1 = document.getElementById("diag-model1-probabilities");
+  const diagModel2 = document.getElementById("diag-model2-probabilities");
+
+  if (diagModel1 && aiResult.productTopPredictions) {
+    diagModel1.innerHTML = aiResult.productTopPredictions.map(p =>
+      `<div>- ${p.className}: <strong>${(p.probability * 100).toFixed(1)}%</strong></div>`
+    ).join("");
+  }
+  if (diagModel2 && aiResult.packagingTopPredictions) {
+    diagModel2.innerHTML = aiResult.packagingTopPredictions.map(k =>
+      `<div>- ${k.className}: <strong>${(k.probability * 100).toFixed(1)}%</strong></div>`
+    ).join("");
+  }
 
   const warnBanner = document.getElementById("low-confidence-warning");
   if (warnBanner) {
@@ -986,8 +1001,10 @@ function populateOCRFields(ocrData, fieldsMap = null) {
 }
 
 function getMilkLabParamsFromUI() {
-  const expectedProduct = document.getElementById("inspect-expected-product").value;
-  if (!expectedProduct.toLowerCase().includes("milk")) return null;
+  const expectedProduct = document.getElementById("inspect-expected-product")?.value || "";
+  const detectedProduct = document.getElementById("badge-product-name")?.innerText || "";
+  const isMilk = expectedProduct.toLowerCase().includes("milk") || detectedProduct.toLowerCase().includes("milk");
+  if (!isMilk) return null;
 
   const fat = parseFloat(document.getElementById("milk-fat-input").value) || 3.8;
   const snf = parseFloat(document.getElementById("milk-snf-input").value) || 8.6;

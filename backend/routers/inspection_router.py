@@ -237,11 +237,6 @@ def save_inspection(req: InspectionSaveRequest, db: Session = Depends(get_db)):
         b = db.query(Batch).filter(Batch.batch_number == batch_number_val).first()
         if b:
             batch_id = b.id
-    if not batch_id:
-        active_b = db.query(Batch).filter(Batch.status == "ACTIVE").first()
-        if active_b:
-            batch_id = active_b.id
-            batch_number_val = active_b.batch_number
 
     new_inspection = Inspection(
         batch_id=batch_id,

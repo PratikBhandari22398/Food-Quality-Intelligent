@@ -224,11 +224,12 @@
               <span style="font-size:0.85rem; font-weight:700; color:var(--text-muted);"><i class="ph ph-camera"></i> Front Image</span>
               
               <div style="display:flex; flex-direction:column; gap:0.25rem; align-items:flex-end;">
-                <select id="inspect-expected-product" class="form-control" style="width: auto; padding:0.2rem 0.4rem; font-size:0.75rem; display:none;">
-                  <option value="Chips Packet">Chips Packet</option>
-                  <option value="Milk Pouch">Milk Pouch</option>
-                  <option value="Other Food Product">Other Food Product</option>
-                  <option value="Other Object">Other Object</option>
+                <select id="inspect-expected-product" class="form-control" style="width: auto; padding:0.25rem 0.5rem; font-size:0.75rem; font-weight:600; background:rgba(0,0,0,0.3); color:var(--text-main); border-color:var(--border-color);">
+                  <option value="Not Specified">Expected: Not Specified (General Inspection)</option>
+                  <option value="Chips Packet">Expected: Chips Packet</option>
+                  <option value="Milk Pouch">Expected: Milk Pouch</option>
+                  <option value="Other Food Product">Expected: Other Food Product</option>
+                  <option value="Other Object">Expected: Other Object</option>
                 </select>
                 <div id="variant-select-container" style="display:none;">
                   <select id="inspect-product-variant" class="form-control" style="width: auto; padding:0.2rem 0.4rem; font-size:0.75rem; background:rgba(99, 102, 241, 0.2); border-color:var(--primary); font-weight:600; color:var(--accent);">
@@ -451,6 +452,24 @@
               <div class="form-group"><label class="form-label">SNF % (Ref: >8.5)</label><input type="number" step="0.1" id="milk-snf-input" class="form-control milk-lab-input" value="8.6" /></div>
               <div class="form-group"><label class="form-label">pH Level (Ref: 6.4-6.8)</label><input type="number" step="0.1" id="milk-ph-input" class="form-control milk-lab-input" value="6.6" /></div>
               <div class="form-group"><label class="form-label">Temp °C (Ref: 4.0-8.0)</label><input type="number" step="0.1" id="milk-temp-input" class="form-control milk-lab-input" value="5.0" /></div>
+            </div>
+          </div>
+
+          <!-- Section 4: Developer AI Model Diagnostics (PART W) -->
+          <div id="dev-model-diagnostics" style="background:rgba(0,0,0,0.35); border:1px solid var(--border-color); border-radius:6px; padding:0.75rem;">
+            <h4 style="font-size:0.85rem; color:var(--accent); margin-bottom:0.5rem; display:flex; justify-content:space-between; align-items:center;">
+              <span><i class="ph ph-bug"></i> DEVELOPER AI MODEL DIAGNOSTICS</span>
+              <span style="font-size:0.7rem; color:var(--text-dim); font-weight:normal;">Raw Probabilities</span>
+            </h4>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; font-size:0.78rem;">
+              <div style="background:rgba(0,0,0,0.2); padding:0.5rem; border-radius:4px;">
+                <div style="font-weight:700; color:var(--text-muted); margin-bottom:0.25rem; font-size:0.75rem;">PRODUCT MODEL (MODEL 1):</div>
+                <div id="diag-model1-probabilities" style="font-family:monospace; color:var(--accent); font-size:0.75rem; line-height:1.4;">--</div>
+              </div>
+              <div style="background:rgba(0,0,0,0.2); padding:0.5rem; border-radius:4px;">
+                <div style="font-weight:700; color:var(--text-muted); margin-bottom:0.25rem; font-size:0.75rem;">PACKAGING MODEL (MODEL 2):</div>
+                <div id="diag-model2-probabilities" style="font-family:monospace; color:var(--pass-color); font-size:0.75rem; line-height:1.4;">--</div>
+              </div>
             </div>
           </div>
 

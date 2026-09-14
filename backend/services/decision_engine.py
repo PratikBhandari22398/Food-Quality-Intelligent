@@ -46,8 +46,13 @@ class DecisionEngine:
         # -------------------------------------------------------------
         # 1. Non-Food Object / Other Object Rule (Requirement 18)
         # -------------------------------------------------------------
-        det_lower = detected_product.strip().lower()
-        exp_lower = expected_product.strip().lower()
+        det_lower = detected_product.strip().lower() if detected_product else ""
+        exp_raw = (expected_product or "").strip()
+        exp_lower = exp_raw.lower()
+        is_general_inspection = exp_lower in ["", "none", "not specified", "n/a", "unspecified"]
+
+        if is_general_inspection:
+            checklist["Product Match"] = "N/A"
 
         det_category = "Milk" if "milk" in det_lower else ("Chips" if "chips" in det_lower else "Other")
         exp_category = "Milk" if "milk" in exp_lower else ("Chips" if "chips" in exp_lower else "Other")
@@ -62,9 +67,9 @@ class DecisionEngine:
             )
 
         # -------------------------------------------------------------
-        # 2. Category Mismatch Rule (Requirement 16)
+        # 2. Category Mismatch & Product Verification Rules
         # -------------------------------------------------------------
-        elif det_category != "Other" and exp_category != "Other" and det_category != exp_category:
+        elif not is_general_inspection and det_category != "Other" and exp_category != "Other" and det_category != exp_category:
             checklist["Product Match"] = "❌"
             escalate_status(
                 "HOLD",
@@ -72,16 +77,14 @@ class DecisionEngine:
                 "Ensure correct product category package is placed on inspection line."
             )
 
-        # -------------------------------------------------------------
-        # 3. Product Verification (Expected vs Detected)
-        # -------------------------------------------------------------
-        elif exp_lower != det_lower and det_lower != "other food product":
+        elif not is_general_inspection and exp_lower != det_lower and det_lower != "other food product":
             checklist["Product Match"] = "❌"
             escalate_status(
                 "HOLD",
                 f"Product Verification Failed: Expected '{expected_product}' but AI detected '{detected_product}' ({product_confidence*100:.1f}% confidence).",
                 "Human verification required. Confirm physical batch product match."
             )
+
         elif det_lower == "other food product":
             checklist["Product Match"] = "⚠"
             escalate_status(
