@@ -106,9 +106,11 @@ function setupEvents() {
     fetchProductProfile(varSelect.value);
   }
 
-  // Camera, Upload & Reset Buttons (Step 22 State Management)
+  // Camera, Upload & Reset Buttons (Step 27 State Management)
   const btnStartCam = document.getElementById("btn-start-cam");
   const btnUploadFront = document.getElementById("btn-upload-front");
+  const btnTriggerCapture = document.getElementById("btn-trigger-capture");
+  const btnCloseCam = document.getElementById("btn-close-cam");
   const btnStopCam = document.getElementById("btn-stop-cam");
   const btnCapture = document.getElementById("btn-capture-frame");
   const btnReset = document.getElementById("btn-reset-inspection");
@@ -119,16 +121,7 @@ function setupEvents() {
     btnStartCam.addEventListener("click", async () => {
       const started = await window.cameraHandler.startCamera();
       if (started) {
-        btnStartCam.style.display = "none";
-        if (btnUploadFront) btnUploadFront.style.display = "none";
-        if (btnStopCam) {
-          btnStopCam.style.display = "inline-flex";
-          btnStopCam.innerHTML = `<i class="ph ph-arrow-counter-clockwise"></i> ↻ RETAKE`;
-        }
-        if (btnCapture) {
-          btnCapture.style.display = "inline-flex";
-          btnCapture.innerHTML = `<i class="ph ph-aperture"></i> ⚡ INSPECT`;
-        }
+        setInputMode("camera");
         const card = document.getElementById("decision-result-card");
         if (card) card.className = "decision-card IDLE";
         const title = document.getElementById("decision-status-title");
@@ -137,13 +130,36 @@ function setupEvents() {
           title.style.color = "var(--primary)";
         }
         const actionDiv = document.getElementById("decision-recommended-action");
-        if (actionDiv) actionDiv.innerText = "Align product package in camera view and click ⚡ INSPECT.";
+        if (actionDiv) actionDiv.innerText = "Align product package in camera view and click 📸 CAPTURE or ⚡ INSPECT.";
       }
     });
   }
 
   if (btnUploadFront && fileInput) {
-    btnUploadFront.addEventListener("click", () => fileInput.click());
+    btnUploadFront.addEventListener("click", () => {
+      window.cameraHandler.stopCamera();
+      setInputMode("upload");
+      fileInput.click();
+    });
+  }
+
+  if (btnTriggerCapture) {
+    btnTriggerCapture.addEventListener("click", () => {
+      const b64 = window.cameraHandler.captureFrame();
+      window.cameraHandler.stopCamera();
+      if (b64) {
+        setImageReadyState(b64);
+      } else {
+        showToast("error", "Failed to capture image from camera stream.");
+      }
+    });
+  }
+
+  if (btnCloseCam) {
+    btnCloseCam.addEventListener("click", () => {
+      window.cameraHandler.stopCamera();
+      setInputMode("idle");
+    });
   }
 
   if (btnStopCam) {
@@ -164,7 +180,11 @@ function setupEvents() {
   }
 
   if (fileInput && dropZone) {
-    dropZone.addEventListener("click", () => fileInput.click());
+    dropZone.addEventListener("click", () => {
+      window.cameraHandler.stopCamera();
+      setInputMode("upload");
+      fileInput.click();
+    });
     fileInput.addEventListener("change", async (e) => {
       if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
@@ -1252,15 +1272,44 @@ function resetInspectionState() {
   const tsSpan = document.getElementById("summary-card-timestamp");
   if (tsSpan) tsSpan.innerText = "--:--";
 
+  setInputMode("idle");
+}
+
+function setInputMode(mode) {
+  state.inspectionInputMode = mode; // "idle", "camera", "upload", "preview"
+
+  const viewportCard = document.getElementById("main-viewport-card");
+  const cameraContainer = document.getElementById("camera-container");
+  const uploadContainer = document.getElementById("upload-container");
+  const previewContainer = document.getElementById("preview-container");
+
   const btnStartCam = document.getElementById("btn-start-cam");
   const btnUploadFront = document.getElementById("btn-upload-front");
-  const btnStopCam = document.getElementById("btn-stop-cam");
-  const btnCapture = document.getElementById("btn-capture-frame");
+  const btnTriggerCapture = document.getElementById("btn-trigger-capture");
+  const btnCloseCam = document.getElementById("btn-close-cam");
+  const btnStopCam = document.getElementById("btn-stop-cam"); // RETAKE
+  const btnCapture = document.getElementById("btn-capture-frame"); // INSPECT
 
-  if (btnStartCam) btnStartCam.style.display = "inline-flex";
-  if (btnUploadFront) btnUploadFront.style.display = "inline-flex";
-  if (btnStopCam) btnStopCam.style.display = "none";
-  if (btnCapture) btnCapture.style.display = "none";
+  if (viewportCard) {
+    viewportCard.className = `viewport-container mode-${mode}`;
+  }
+
+  const isCamVis = mode === "camera";
+  const isUploadVis = mode === "upload";
+  const isPreviewVis = mode === "preview";
+
+  if (cameraContainer) cameraContainer.style.display = isCamVis ? "block" : "none";
+  if (uploadContainer) uploadContainer.style.display = (isUploadVis || mode === "idle") ? "block" : "none";
+  if (previewContainer) previewContainer.style.display = isPreviewVis ? "block" : "none";
+
+  if (btnStartCam) btnStartCam.style.display = (mode === "idle" || mode === "upload") ? "inline-flex" : "none";
+  if (btnUploadFront) btnUploadFront.style.display = (mode === "idle" || mode === "camera") ? "inline-flex" : "none";
+  if (btnTriggerCapture) btnTriggerCapture.style.display = isCamVis ? "inline-flex" : "none";
+  if (btnCloseCam) btnCloseCam.style.display = isCamVis ? "inline-flex" : "none";
+  if (btnStopCam) btnStopCam.style.display = isPreviewVis ? "inline-flex" : "none";
+  if (btnCapture) btnCapture.style.display = isPreviewVis ? "inline-flex" : "none";
+
+  console.log(`[INPUT MODE]: ${mode} | Upload container visible: ${isUploadVis || mode === "idle"} | Camera container visible: ${isCamVis}`);
 }
 
 function setImageReadyState(b64) {
@@ -1268,24 +1317,7 @@ function setImageReadyState(b64) {
   state.currentInspectionResult = null;
   state.ocrExtractedData = null;
 
-  const dropZone = document.getElementById("drag-drop-zone");
-  if (dropZone) dropZone.style.display = "none";
-
-  const btnStartCam = document.getElementById("btn-start-cam");
-  const btnUploadFront = document.getElementById("btn-upload-front");
-  const btnStopCam = document.getElementById("btn-stop-cam");
-  const btnCapture = document.getElementById("btn-capture-frame");
-
-  if (btnStartCam) btnStartCam.style.display = "none";
-  if (btnUploadFront) btnUploadFront.style.display = "none";
-  if (btnStopCam) {
-    btnStopCam.style.display = "inline-flex";
-    btnStopCam.innerHTML = `<i class="ph ph-arrow-counter-clockwise"></i> ↻ RETAKE`;
-  }
-  if (btnCapture) {
-    btnCapture.style.display = "inline-flex";
-    btnCapture.innerHTML = `<i class="ph ph-aperture"></i> ⚡ INSPECT`;
-  }
+  setInputMode("preview");
 
   const livePanel = document.getElementById("live-nutrition-panel");
   if (livePanel) livePanel.style.display = "none";

@@ -63,7 +63,7 @@ class DecisionEngine:
                 checklist["Product Match"] = "❌"
             escalate_status(
                 "HOLD",
-                "No supported food product detected.",
+                "Product Verification Failed: Not a supported food product (No supported food product detected).",
                 "Remove non-food object from production inspection line."
             )
 
@@ -75,7 +75,7 @@ class DecisionEngine:
                 checklist["Product Match"] = "❌"
                 escalate_status(
                     "HOLD",
-                    "Expected and detected products do not match.",
+                    "Product Verification Failed: Expected and detected products do not match.",
                     "Human verification required. Confirm physical batch product match."
                 )
 
@@ -102,14 +102,14 @@ class DecisionEngine:
             checklist["Package Condition"] = "❌"
             escalate_status(
                 "REJECT",
-                "Visible package damage detected.",
+                "Package Defect: Visible package damage detected.",
                 "Remove/inspect product according to manufacturing procedure."
             )
         elif "unclear" in cond_lower or condition_confidence < 0.65:
             checklist["Package Condition"] = "⚠"
             escalate_status(
                 "WARNING",
-                "Package condition could not be verified clearly.",
+                "Package Condition Unclear: Package condition could not be verified clearly.",
                 "Capture another image of package condition."
             )
 
@@ -287,11 +287,11 @@ class DecisionEngine:
         if current_status == "PASS":
             if is_general_inspection:
                 if "milk" in det_lower:
-                    reasons.insert(0, "Milk pouch detected and package condition appears normal.")
+                    reasons.insert(0, "Milk pouch detected and package condition appears normal. Product and package verified.")
                 elif "chips" in det_lower:
-                    reasons.insert(0, "Chips packet detected and package condition appears normal.")
+                    reasons.insert(0, "Chips packet detected and package condition appears normal. Product and package verified.")
                 else:
-                    reasons.insert(0, "Product detected and package condition appears normal.")
+                    reasons.insert(0, "Product detected and package condition appears normal. Product and package verified.")
             else:
                 reasons.insert(0, "All configured inspection checks passed successfully.")
             checklist["Final Decision"] = "✅ PASS"

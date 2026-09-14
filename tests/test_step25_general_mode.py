@@ -22,7 +22,7 @@ class TestStep25GeneralMode(unittest.TestCase):
         )
         self.assertEqual(res["final_status"], "PASS")
         self.assertEqual(res["checklist"]["Product Match"], "N/A")
-        self.assertIn("Milk pouch detected and package condition appears normal.", res["reasons"])
+        self.assertTrue(any("Milk pouch detected" in r for r in res["reasons"]))
 
     def test_2_general_chips_normal(self):
         """TEST 2: General + Chips + Normal -> PASS"""
@@ -35,7 +35,7 @@ class TestStep25GeneralMode(unittest.TestCase):
         )
         self.assertEqual(res["final_status"], "PASS")
         self.assertEqual(res["checklist"]["Product Match"], "N/A")
-        self.assertIn("Chips packet detected and package condition appears normal.", res["reasons"])
+        self.assertTrue(any("Chips packet detected" in r for r in res["reasons"]))
 
     def test_3_general_chips_damage(self):
         """TEST 3: General + Chips + Damage -> REJECT"""
@@ -47,7 +47,7 @@ class TestStep25GeneralMode(unittest.TestCase):
             condition_confidence=1.0
         )
         self.assertEqual(res["final_status"], "REJECT")
-        self.assertIn("Visible package damage detected.", res["reasons"])
+        self.assertTrue(any("Visible package damage detected" in r for r in res["reasons"]))
 
     def test_4_general_milk_unclear_package(self):
         """TEST 4: General + Milk + Unclear Package -> WARNING"""
@@ -59,7 +59,7 @@ class TestStep25GeneralMode(unittest.TestCase):
             condition_confidence=0.5
         )
         self.assertEqual(res["final_status"], "WARNING")
-        self.assertIn("Package condition could not be verified clearly.", res["reasons"])
+        self.assertTrue(any("Package condition could not be verified" in r for r in res["reasons"]))
 
     def test_5_general_other_object(self):
         """TEST 5: General + Other Object -> HOLD"""
@@ -71,7 +71,7 @@ class TestStep25GeneralMode(unittest.TestCase):
             condition_confidence=1.0
         )
         self.assertEqual(res["final_status"], "HOLD")
-        self.assertIn("No supported food product detected.", res["reasons"])
+        self.assertTrue(any("No supported food product detected" in r for r in res["reasons"]))
 
     def test_6_expected_chips_detected_milk(self):
         """TEST 6: Expected Chips + Detected Milk -> HOLD"""
@@ -83,7 +83,7 @@ class TestStep25GeneralMode(unittest.TestCase):
             condition_confidence=1.0
         )
         self.assertEqual(res["final_status"], "HOLD")
-        self.assertIn("Expected and detected products do not match.", res["reasons"])
+        self.assertTrue(any("Expected and detected products do not match" in r for r in res["reasons"]))
 
     def test_7_chips_batch_selected_then_general_milk(self):
         """TEST 7: Select Chips batch, then General Milk inspection -> PASS"""
@@ -119,8 +119,9 @@ class TestStep25GeneralMode(unittest.TestCase):
         # First ensure a batch exists in DB
         db = next(get_db())
         p = db.query(Product).first()
-        prod_id = p.id if p else 1
-        b = Batch(batch_number="TEST-BATCH-100", product_id=prod_id, target_quantity=100)
+        import uuid
+        b_num = f"TEST-BATCH-{uuid.uuid4().hex[:6]}"
+        b = Batch(batch_number=b_num, product_id=prod_id)
         db.add(b)
         db.commit()
         db.refresh(b)

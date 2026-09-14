@@ -315,6 +315,34 @@ body {
   object-fit: cover;
 }
 
+.camera-container, .upload-container, .preview-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.mode-camera .upload-container,
+.mode-camera .preview-container,
+.mode-camera .drag-drop-overlay {
+  display: none !important;
+}
+
+.mode-upload .camera-container,
+.mode-upload .preview-container {
+  display: none !important;
+}
+
+.mode-preview .camera-container,
+.mode-preview .upload-container,
+.mode-preview .drag-drop-overlay {
+  display: none !important;
+}
+
+.mode-idle .camera-container,
+.mode-idle .preview-container {
+  display: none !important;
+}
+
 .drag-drop-overlay {
   position: absolute;
   inset: 0;
