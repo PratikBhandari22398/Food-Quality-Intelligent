@@ -1,0 +1,4 @@
+0 chips packet
+1 milk pouch
+2 other food product
+3 other object

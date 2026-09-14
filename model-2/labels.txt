@@ -1,0 +1,3 @@
+0 normal package
+1 damage package
+2 unclear

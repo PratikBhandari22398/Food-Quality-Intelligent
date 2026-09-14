@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Food Quality, Safety & Risk Detection System</title>
+  
+  <!-- CSS Styles -->
+  <link rel="stylesheet" href="/static/css/styles.css">
+  
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <!-- TensorFlow.js & Teachable Machine Image Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+</head>
+<body>
+
+  <!-- Header / Navigation Bar -->
+  <header class="app-header">
+    <div class="brand-container">
+      <div class="brand-icon">
+        <i class="ph ph-shield-check"></i>
+      </div>
+      <div class="brand-title">
+        <h1>QUALIGUARD AI</h1>
+        <p>Intelligent Quality & Risk Detection System</p>
+      </div>
+    </div>
+
+    <nav class="nav-tabs">
+      <button class="nav-btn active" data-target="dashboard"><i class="ph ph-squares-four"></i> Dashboard</button>
+      <button class="nav-btn" data-target="inspection"><i class="ph ph-camera"></i> Live Inspection</button>
+      <button class="nav-btn" data-target="batches"><i class="ph ph-package"></i> Batches</button>
+      <button class="nav-btn" data-target="history"><i class="ph ph-clock-counter-clockwise"></i> History</button>
+    </nav>
+
+    <div style="display:flex; align-items:center; gap:0.75rem;">
+      <div class="active-batch-pill">
+        <div class="batch-status-dot"></div>
+        <span>Active Batch: <strong id="active-batch-name">Loading...</strong></span>
+      </div>
+    </div>
+  </header>
+
+
+  <!-- Main Content Container -->
+  <main class="main-wrapper">
+
+    <!-- VIEW 1: DASHBOARD OVERVIEW -->
+    <section id="view-dashboard" class="view-section active">
+      <!-- 4 Top Stat Cards -->
+      <div class="grid-dashboard">
+        <div class="glass-panel stat-card pass">
+          <div class="stat-header"><span>TOTAL INSPECTIONS</span><i class="ph ph-scan"></i></div>
+          <div class="stat-value" id="stat-total">0</div>
+          <div class="stat-subtext">Cumulative inspection volume</div>
+        </div>
+        <div class="glass-panel stat-card pass">
+          <div class="stat-header"><span>PASS COUNT</span><i class="ph ph-check-circle"></i></div>
+          <div class="stat-value" id="stat-pass">0</div>
+          <div class="stat-subtext">Approved packaging & lab checks</div>
+        </div>
+        <div class="glass-panel stat-card warn">
+          <div class="stat-header"><span>WARNING COUNT</span><i class="ph ph-warning"></i></div>
+          <div class="stat-value" id="stat-warn">0</div>
+          <div class="stat-subtext">Low confidence or near expiry</div>
+        </div>
+        <div class="glass-panel stat-card reject">
+          <div class="stat-header"><span>HOLD / REJECT</span><i class="ph ph-x-circle"></i></div>
+          <div class="stat-value"><span id="stat-hold">0</span> / <span id="stat-reject">0</span></div>
+          <div class="stat-subtext">Product mismatch or defect failures</div>
+        </div>
+      </div>
+
+      <!-- Charts & Visual Analytics -->
+      <div class="dashboard-charts-grid">
+        <div class="glass-panel" style="padding: 1.25rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3 style="font-family:var(--font-heading); font-size:1rem;">Quality Inspection Throughput</h3>
+            <span style="font-size:0.75rem; color:var(--text-dim);">Live Timeline Data</span>
+          </div>
+          <div style="height: 240px; position:relative;">
+            <canvas id="chart-timeline"></canvas>
+          </div>
+        </div>
+
+        <div class="glass-panel" style="padding: 1.25rem;">
+          <h3 style="font-family:var(--font-heading); font-size:1rem; margin-bottom:1rem;">Status Distribution</h3>
+          <div style="height: 240px; position:relative;">
+            <canvas id="chart-status-pie"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Inspections & Active Alerts -->
+      <div style="display:grid; grid-template-columns: 2fr 1fr; gap:1.25rem;">
+        <div class="glass-panel" style="padding:1.25rem;">
+          <h3 style="font-family:var(--font-heading); font-size:1rem; margin-bottom:1rem;">Recent Quality Logs</h3>
+          <div class="table-container">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Batch</th>
+                  <th>Product</th>
+                  <th>Status</th>
+                  <th>Source</th>
+                  <th>Timestamp</th>
+                </tr>
+              </thead>
+              <tbody id="table-recent-inspections">
+                <!-- Dynamically Populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="glass-panel" style="padding:1.25rem;">
+          <h3 style="font-family:var(--font-heading); font-size:1rem; margin-bottom:1rem; color:var(--warn-color);">Active Risk Alerts</h3>
+          <div id="alerts-feed-container">
+            <!-- Dynamically Populated -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Expiry Monitoring & Waste Prevention Cards -->
+      <div style="margin-top:1.25rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+          <h3 style="font-family:var(--font-heading); font-size:1rem; margin:0;"><i class="ph ph-hourglass-high" style="color:var(--accent);"></i> EXPIRY MONITORING & WASTE PREVENTION</h3>
+          <span style="font-size:0.75rem; color:var(--text-dim); font-weight:600;">Waste Prevention Support</span>
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:1rem; margin-bottom:0.75rem;">
+          <div class="glass-panel stat-card" style="padding:0.85rem; border-left:4px solid var(--pass-color);">
+            <div style="font-size:0.72rem; color:var(--text-dim);">NORMAL STOCK</div>
+            <div style="font-size:1.4rem; font-weight:700; color:var(--pass-color);" id="expiry-stat-normal">0</div>
+            <div style="font-size:0.68rem; color:var(--text-muted);">>30 days remaining</div>
+          </div>
+          <div class="glass-panel stat-card" style="padding:0.85rem; border-left:4px solid var(--warn-color);">
+            <div style="font-size:0.72rem; color:var(--text-dim);">EXPIRING SOON</div>
+            <div style="font-size:1.4rem; font-weight:700; color:var(--warn-color);" id="expiry-stat-soon">0</div>
+            <div style="font-size:0.68rem; color:var(--text-muted);">Within warning window (<=30d)</div>
+          </div>
+          <div class="glass-panel stat-card" style="padding:0.85rem; border-left:4px solid var(--reject-color);">
+            <div style="font-size:0.72rem; color:var(--text-dim);">EXPIRED STOCK</div>
+            <div style="font-size:1.4rem; font-weight:700; color:var(--reject-color);" id="expiry-stat-expired">0</div>
+            <div style="font-size:0.68rem; color:var(--text-muted);">Passed expiry date</div>
+          </div>
+          <div class="glass-panel stat-card" style="padding:0.85rem; border-left:4px solid var(--text-dim);">
+            <div style="font-size:0.72rem; color:var(--text-dim);">UNKNOWN EXPIRY</div>
+            <div style="font-size:1.4rem; font-weight:700; color:var(--text-muted);" id="expiry-stat-unknown">0</div>
+            <div style="font-size:0.68rem; color:var(--text-muted);">Missing date information</div>
+          </div>
+        </div>
+
+        <div style="font-size:0.75rem; color:var(--text-dim); background:rgba(99, 102, 241, 0.08); border:1px solid var(--border-color); padding:0.4rem 0.75rem; border-radius:6px; margin-bottom:1rem;">
+          💡 <em>Track batches approaching expiry so staff can review stock in time and reduce avoidable waste.</em>
+        </div>
+
+        <!-- Stock at Risk Table -->
+        <div class="glass-panel" style="padding:1.25rem;">
+          <h3 style="font-family:var(--font-heading); font-size:1rem; margin-bottom:0.75rem; color:var(--warn-color);"><i class="ph ph-warning-circle"></i> STOCK AT RISK (Near Expiry & Expired)</h3>
+          <div class="table-container">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Batch Number</th>
+                  <th>Expiry Date</th>
+                  <th>Days Remaining</th>
+                  <th>Expiry Status</th>
+                </tr>
+              </thead>
+              <tbody id="table-stock-at-risk">
+                <!-- Dynamically Populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- VIEW 2: LIVE QUALITY INSPECTION CONSOLE -->
+    <section id="view-inspection" class="view-section">
+
+      <!-- Minimal Header & Hint (Requirements 1, 9, 10, 11) -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
+        <div>
+          <h2 style="font-family:var(--font-heading); font-size:1.3rem; margin:0; font-weight:700;">LIVE INSPECTION</h2>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin:0.2rem 0 0 0;">Inspect a Chips Packet or Milk Pouch</p>
+        </div>
+
+        <!-- Minimal 3-Step Progress Indicator (Requirement 9) -->
+        <div class="glass-panel" style="padding:0.4rem 0.85rem; font-size:0.75rem; font-weight:600; display:flex; gap:0.6rem; align-items:center;">
+          <span id="mini-step-1" style="color:var(--primary); font-weight:700;">1. Inspect</span>
+          <span style="color:var(--text-dim);">➔</span>
+          <span id="mini-step-2" style="color:var(--text-dim);">2. Verify</span>
+          <span style="color:var(--text-dim);">➔</span>
+          <span id="mini-step-3" style="color:var(--text-dim);">3. Result</span>
+        </div>
+      </div>
+
+      <!-- Quick Hint Bar (Requirement 11) -->
+      <div style="font-size:0.78rem; color:var(--text-dim); margin-bottom:1rem; display:flex; align-items:center; gap:0.4rem; background:rgba(255,255,255,0.03); padding:0.4rem 0.75rem; border-radius:6px; border:1px solid var(--border-color);">
+        <i class="ph ph-lightbulb" style="color:var(--warn-color);"></i>
+        <span>Keep the package visible and use good lighting. Capture or upload a product image to begin.</span>
+      </div>
+
+      <!-- Main Uncluttered 2-Column Grid (Requirements 1, 3, 4, 16) -->
+      <div style="display:grid; grid-template-columns: minmax(320px, 1.2fr) minmax(300px, 1fr); gap:1.25rem; align-items:start;">
+        
+        <!-- LEFT COLUMN: Image Input Viewport & Back Label Scan -->
+        <div style="display:flex; flex-direction:column; gap:1rem;">
+          
+          <!-- Front Image Viewport Card -->
+          <div class="glass-panel camera-card" style="padding:1rem;">
+            <div class="card-title" style="margin-bottom:0.75rem; display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:0.85rem; font-weight:700; color:var(--text-muted);"><i class="ph ph-camera"></i> Front Image</span>
+              
+              <div style="display:flex; flex-direction:column; gap:0.25rem; align-items:flex-end;">
+                <select id="inspect-expected-product" class="form-control" style="width: auto; padding:0.2rem 0.4rem; font-size:0.75rem; display:none;">
+                  <option value="Chips Packet">Chips Packet</option>
+                  <option value="Milk Pouch">Milk Pouch</option>
+                  <option value="Other Food Product">Other Food Product</option>
+                  <option value="Other Object">Other Object</option>
+                </select>
+                <div id="variant-select-container" style="display:none;">
+                  <select id="inspect-product-variant" class="form-control" style="width: auto; padding:0.2rem 0.4rem; font-size:0.75rem; background:rgba(99, 102, 241, 0.2); border-color:var(--primary); font-weight:600; color:var(--accent);">
+                    <option value="Lay's Classic Salted">Lay's Classic Salted</option>
+                    <option value="Lay's Spanish Tomato Tango">Lay's Spanish Tomato Tango</option>
+                    <option value="Pure Dairy Toned Milk">Pure Dairy Toned Milk</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Viewport Container -->
+            <div class="viewport-container" style="aspect-ratio:4/3; max-height:300px;">
+              <video id="webcam-video" autoplay playsinline style="display:none;"></video>
+              <img id="image-preview" src="" alt="Snapshot Preview" style="display:none;" />
+              <canvas id="capture-canvas" style="display:none;"></canvas>
+
+              <div id="drag-drop-zone" class="drag-drop-overlay">
+                <i class="ph ph-cloud-arrow-up drag-drop-icon"></i>
+                <p style="font-size:0.9rem; font-weight:600; margin:0.2rem 0;">Drag & Drop Image</p>
+                <p style="font-size:0.75rem; color:var(--text-dim); margin:0;">or click to upload photo</p>
+                <input type="file" id="image-file-input" accept="image/*" style="display:none;" />
+              </div>
+            </div>
+
+            <!-- Simple Camera / Upload / Reset Buttons (Step 22) -->
+            <div class="camera-controls" style="display:flex; gap:0.5rem; margin-top:0.75rem; flex-wrap:wrap;">
+              <button id="btn-start-cam" class="btn btn-primary" style="flex:1; font-size:0.8rem;"><i class="ph ph-webcam"></i> 📷 USE CAMERA</button>
+              <button id="btn-upload-front" class="btn" style="flex:1; font-size:0.8rem;"><i class="ph ph-upload-simple"></i> 📁 UPLOAD PHOTO</button>
+              <button id="btn-stop-cam" class="btn" style="display:none; flex:1; font-size:0.8rem;"><i class="ph ph-arrow-counter-clockwise"></i> ↻ RETAKE</button>
+              <button id="btn-capture-frame" class="btn btn-success" style="display:none; flex:1; font-size:0.85rem; font-weight:700;"><i class="ph ph-aperture"></i> ⚡ INSPECT</button>
+              <button id="btn-reset-inspection" class="btn" style="font-size:0.78rem; border:1px solid var(--border-color); color:var(--text-muted);"><i class="ph ph-arrows-counter-clockwise"></i> ↻ RESET</button>
+            </div>
+          </div>
+
+          <!-- Live Conditional Nutrition Card (Step 22 - Hidden until product detected) -->
+          <div id="live-nutrition-panel" class="glass-panel" style="display:none; padding:0.85rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+              <span style="font-size:0.8rem; font-weight:700; color:var(--accent);"><i class="ph ph-heartbeat"></i> NUTRITION INFORMATION</span>
+              <span id="live-nutrition-basis" style="font-size:0.7rem; color:var(--text-dim); font-weight:600;">Per 100 g</span>
+            </div>
+
+            <div id="live-nutrition-missing-notice" style="display:none; font-size:0.75rem; color:var(--warn-color); padding:0.5rem; text-align:center;">
+              ⚠️ Nutrition profile not configured for this product.
+            </div>
+
+            <!-- Clean 2-Column Live Nutrition Summary Grid (Step 22) -->
+            <div id="live-nutrition-table-container" class="table-container" style="max-height:170px; overflow-y:auto;">
+              <table class="custom-table" style="font-size:0.75rem;">
+                <thead>
+                  <tr>
+                    <th>Nutrient</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody id="live-nutrition-table-body">
+                </tbody>
+              </table>
+            </div>
+
+            <div style="font-size:0.68rem; color:var(--text-dim); margin-top:0.4rem; font-style:italic; display:flex; justify-content:space-between;">
+              <span>Source: <strong id="live-nutrition-source" style="color:var(--text-muted);">Verified Product Label</strong></span>
+              <span style="color:var(--pass-color); font-weight:600;">✅ Verified Record</span>
+            </div>
+          </div>
+
+          <!-- Developer Demo Test Mode (Hidden from normal view - Step 23) -->
+          <div style="display:none; font-size:0.7rem; color:var(--text-dim); justify-content:space-between; align-items:center; padding:0.3rem 0.5rem;">
+            <span>Developer Test Mode:</span>
+            <div style="display:flex; gap:0.3rem;">
+              <button id="btn-demo-chips" class="btn btn-sm" style="font-size:0.68rem; padding:0.15rem 0.4rem;">Chips Demo</button>
+              <button id="btn-demo-milk" class="btn btn-sm" style="font-size:0.68rem; padding:0.15rem 0.4rem;">Milk Demo</button>
+              <button id="btn-toggle-ocr-debug" class="btn btn-sm" style="font-size:0.68rem; padding:0.15rem 0.4rem;">Toggle Debug</button>
+            </div>
+          </div>
+
+          <!-- Developer OCR Debug Panel (Section 15 - Hidden from normal view) -->
+          <div id="ocr-debug-panel" style="display:none; background:rgba(0,0,0,0.3); border:1px solid var(--border-color); border-radius:6px; padding:0.6rem; margin-top:0.4rem; font-size:0.7rem;">
+            <div style="font-weight:700; color:var(--accent); margin-bottom:0.3rem; display:flex; justify-content:space-between;">
+              <span><i class="ph ph-bug"></i> OCR DEBUG INFO</span>
+              <span id="debug-ocr-time">0 ms</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.3rem; color:var(--text-muted); margin-bottom:0.3rem;">
+              <div>Engine: <strong id="debug-ocr-engine" style="color:var(--pass-color);">PyTesseract</strong></div>
+              <div>Preproc: <strong id="debug-ocr-preproc" style="color:var(--pass-color);">Adaptive</strong></div>
+            </div>
+            <div style="font-size:0.68rem; color:var(--text-dim);">Raw OCR Text:</div>
+            <textarea id="debug-ocr-raw-text" rows="3" readonly style="width:100%; font-size:0.68rem; background:rgba(0,0,0,0.5); color:var(--accent); font-family:monospace; border:1px solid var(--border-color); border-radius:4px; padding:0.25rem;"></textarea>
+          </div>
+
+        </div>
+
+        <!-- RIGHT COLUMN: COMPACT DETECTION RESULT CARD (Requirements 4, 5, 6, 12, 13) -->
+        <div style="display:flex; flex-direction:column; gap:1rem;">
+          
+          <!-- Compact Inspection Result Card (Initial Empty State Step 22) -->
+          <div id="decision-result-card" class="decision-card IDLE" style="padding:1.25rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+              <span style="font-size:0.7rem; font-weight:700; letter-spacing:0.05em; opacity:0.8;">INSPECTION RESULT</span>
+              <span id="summary-card-timestamp" style="font-size:0.68rem; opacity:0.7;">--:--</span>
+            </div>
+
+            <!-- Large Obvious Status Title (Step 22 Empty State) -->
+            <div id="decision-status-title" class="decision-status-title" style="font-size:1.6rem; margin-bottom:0.5rem; color:var(--text-muted);">Waiting for image</div>
+            
+            <!-- Compact Metrics Grid (Requirement 4 & 15) -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; background:rgba(0,0,0,0.2); padding:0.75rem; border-radius:6px; margin-bottom:0.75rem; font-size:0.8rem;">
+              <div>
+                <div style="font-size:0.7rem; color:var(--text-dim);">Detected Product</div>
+                <strong id="badge-product-name" style="color:var(--accent);">Pending...</strong>
+                <div style="font-size:0.68rem; opacity:0.8;" id="badge-product-conf">--%</div>
+              </div>
+              <div>
+                <div style="font-size:0.7rem; color:var(--text-dim);">Package Condition</div>
+                <strong id="badge-condition-name" style="color:var(--primary);">Pending...</strong>
+                <div style="font-size:0.68rem; opacity:0.8;" id="badge-condition-conf">--%</div>
+              </div>
+            </div>
+
+            <!-- Reason & Action -->
+            <div style="font-size:0.8rem; margin-bottom:0.75rem; line-height:1.3; color:var(--text-muted);" id="decision-recommended-action">
+              Capture or upload an image to begin inspection.
+            </div>
+
+            <!-- Warnings / Incomplete Inspection Notices (Requirements 12 & 13) -->
+            <div id="low-confidence-warning" style="display:none; background:rgba(245, 158, 11, 0.15); border:1px solid var(--warn-color); padding:0.4rem 0.6rem; border-radius:4px; font-size:0.75rem; color:var(--warn-color); margin-bottom:0.75rem;">
+              ⚠️ Prediction unclear — Try another clearer image.
+            </div>
+
+            <!-- Primary Actions: View Details Modal Button & Save Record (Hidden until inspection complete) -->
+            <div id="result-actions-container" style="display:none; flex-direction:column; gap:0.5rem; margin-top:0.5rem;">
+              <button id="btn-open-details-modal" class="btn" style="padding:0.6rem; font-size:0.8rem; font-weight:600; border:1px solid var(--accent); color:var(--accent); text-align:center;">
+                <i class="ph ph-magnifying-glass"></i> VIEW DETAILS & NUTRITION
+              </button>
+              
+              <button id="btn-save-inspection" class="btn btn-primary" style="padding:0.65rem; font-size:0.8rem; font-weight:700;">
+                <i class="ph ph-floppy-disk"></i> LOG & SAVE INSPECTION RECORD
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- FULL DETAILS MODAL / DRAWER (Requirements 6, 7, 14, 18) -->
+    <div id="inspection-details-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); backdrop-filter:blur(6px); z-index:9999; justify-content:center; align-items:center; padding:1rem;">
+      <div class="glass-panel" style="width:100%; max-width:750px; max-height:90vh; display:flex; flex-direction:column; background:var(--bg-card); border:1px solid var(--border-color); border-radius:12px; overflow:hidden;">
+        
+        <!-- Modal Header -->
+        <div style="padding:1rem 1.25rem; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+          <h3 style="font-family:var(--font-heading); font-size:1.1rem; margin:0; font-weight:700; color:var(--accent);"><i class="ph ph-list-bullets"></i> INSPECTION DETAILS & VERIFICATION</h3>
+          <button id="btn-close-details-modal" class="btn" style="padding:0.3rem 0.6rem; font-size:0.8rem;"><i class="ph ph-x"></i> Close</button>
+        </div>
+
+        <!-- Modal Scrollable Content -->
+        <div style="padding:1.25rem; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:1.25rem;">
+          
+          <!-- Section 1: Verified Product Profile Metadata -->
+          <div>
+            <h4 style="font-size:0.85rem; color:var(--accent); margin-bottom:0.5rem; border-bottom:1px dashed var(--border-color); padding-bottom:0.3rem;"><i class="ph ph-tag"></i> PRODUCT PROFILE METADATA</h4>
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.5rem; font-size:0.8rem; background:rgba(0,0,0,0.2); padding:0.6rem; border-radius:6px;">
+              <div>MRP: <strong id="modal-product-mrp" style="color:var(--pass-color);">₹20</strong></div>
+              <div>Net Weight: <strong id="modal-product-net-weight" style="color:var(--text-muted);">50 g</strong></div>
+              <div>Serving Size: <strong id="modal-product-serving-size" style="color:var(--text-muted);">20 g</strong></div>
+            </div>
+          </div>
+
+          <!-- Section 2: Extracted OCR Label Data -->
+          <div>
+            <h4 style="font-size:0.85rem; color:var(--pass-color); margin-bottom:0.5rem; border-bottom:1px dashed var(--border-color); padding-bottom:0.3rem;"><i class="ph ph-barcode"></i> EXTRACTED BACK LABEL DATA</h4>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; font-size:0.8rem;">
+              <div>Batch Number: <strong id="modal-ocr-batch">--</strong></div>
+              <div>Best Before Date: <strong id="modal-ocr-exp">--</strong></div>
+              <div>Net Weight: <strong id="modal-ocr-weight">--</strong></div>
+              <div>Serving Size: <strong id="modal-ocr-serving">--</strong></div>
+            </div>
+          </div>
+
+          <!-- Section 3: Nutrition Information Table & Verification -->
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; border-bottom:1px dashed var(--border-color); padding-bottom:0.3rem;">
+              <h4 style="font-size:0.85rem; color:var(--text-muted); margin:0;"><i class="ph ph-heartbeat"></i> NUTRITION INFORMATION</h4>
+              <span id="nutrition-basis-badge" style="font-size:0.75rem; color:var(--accent); font-weight:600;">Basis: Per 100 g</span>
+            </div>
+
+            <!-- Verification Status Badges -->
+            <div style="display:flex; flex-wrap:wrap; gap:0.4rem; font-size:0.75rem; margin-bottom:0.6rem;">
+              <div id="badge-consistency-check" style="background:rgba(16, 185, 129, 0.1); border:1px solid var(--pass-color); padding:0.25rem 0.5rem; border-radius:4px; color:var(--pass-color);">✅ Product Consistent</div>
+              <div id="badge-expiry-check" style="background:rgba(16, 185, 129, 0.1); border:1px solid var(--pass-color); padding:0.25rem 0.5rem; border-radius:4px; color:var(--pass-color);">✅ Date Valid</div>
+              <div id="badge-ocr-vs-db-check" style="background:rgba(99, 102, 241, 0.1); border:1px solid var(--primary); padding:0.25rem 0.5rem; border-radius:4px; color:var(--accent);">✅ DB vs OCR: MATCH</div>
+              <div id="badge-reference-check" style="background:rgba(16, 185, 129, 0.1); border:1px solid var(--pass-color); padding:0.25rem 0.5rem; border-radius:4px; color:var(--pass-color);">✅ WITHIN REFERENCE</div>
+            </div>
+
+            <div class="table-container" style="max-height: 200px; overflow-y:auto;">
+              <table class="custom-table">
+                <thead>
+                  <tr><th>Nutrient</th><th>Label (Per 100 g/ml)</th><th>Calculated per serving</th><th>Calculated per pack</th></tr>
+                </thead>
+                <tbody id="nutrition-table-body">
+                  <tr><td colspan="4" style="text-align:center; color:var(--text-dim);">No product evaluated yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style="font-size:0.7rem; color:var(--text-dim); margin-top:0.4rem; font-style:italic;">
+              <div>Source: <strong id="nutrition-source-val" style="color:var(--text-muted);">Verified Product Label</strong></div>
+              "Nutrition values are checked against configured reference values and product records. This does not independently certify food safety."
+            </div>
+          </div>
+
+          <!-- Section 3: Milk Quality Parameters (Conditional - Requirement 7) -->
+          <div id="milk-params-drawer" style="display:none;">
+            <h4 style="font-size:0.85rem; color:var(--accent); margin-bottom:0.5rem; border-bottom:1px dashed var(--border-color); padding-bottom:0.3rem;"><i class="ph ph-drop"></i> MILK LAB QUALITY PARAMS</h4>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.5rem;">
+              <div class="form-group"><label class="form-label">Fat % (Ref: 3.5-4.5)</label><input type="number" step="0.1" id="milk-fat-input" class="form-control milk-lab-input" value="3.8" /></div>
+              <div class="form-group"><label class="form-label">SNF % (Ref: >8.5)</label><input type="number" step="0.1" id="milk-snf-input" class="form-control milk-lab-input" value="8.6" /></div>
+              <div class="form-group"><label class="form-label">pH Level (Ref: 6.4-6.8)</label><input type="number" step="0.1" id="milk-ph-input" class="form-control milk-lab-input" value="6.6" /></div>
+              <div class="form-group"><label class="form-label">Temp °C (Ref: 4.0-8.0)</label><input type="number" step="0.1" id="milk-temp-input" class="form-control milk-lab-input" value="5.0" /></div>
+            </div>
+          </div>
+
+          <!-- Section 4: 9-Point Inspection Checklist -->
+          <div>
+            <h4 style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.5rem; border-bottom:1px dashed var(--border-color); padding-bottom:0.3rem;"><i class="ph ph-list-checks"></i> 9-POINT INSPECTION CHECKLIST</h4>
+            <div id="checklist-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:0.4rem; font-size:0.78rem;">
+              <div>Product Detection: <strong id="chk-prod-det">--</strong></div>
+              <div>Product Match: <strong id="chk-prod-match">--</strong></div>
+              <div>Package Condition: <strong id="chk-pkg-cond">--</strong></div>
+              <div>Label Readability: <strong id="chk-lbl-read">--</strong></div>
+              <div>Batch Number: <strong id="chk-batch-num">--</strong></div>
+              <div>Best Before: <strong id="chk-exp-date">--</strong></div>
+              <div>Nutrition: <strong id="chk-nutrition">--</strong></div>
+              <div>Milk Quality: <strong id="chk-milk-qual">N/A</strong></div>
+              <div style="grid-column: span 2; font-weight:700; margin-top:0.25rem; border-top:1px dashed var(--border-color); padding-top:0.25rem;">
+                Final Decision Status: <strong id="chk-final-dec">--</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 5: Human Operator Review Drawer -->
+          <div id="human-review-drawer" style="display:none; padding:0.85rem; background:rgba(245,158,11,0.08); border:1px solid var(--warn-color); border-radius:6px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+              <h4 style="font-size:0.85rem; color:var(--warn-color); margin:0;"><i class="ph ph-user-focus"></i> HUMAN OPERATOR REVIEW</h4>
+              <span id="review-ai-recommendation" style="font-size:0.72rem; font-weight:700; color:var(--warn-color);">AI Rec: HOLD</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:0.4rem;">
+              <input type="text" id="reviewer-name-input" class="form-control" placeholder="Reviewer Name / ID (e.g. Op-04)" style="font-size:0.8rem;" />
+              <textarea id="reviewer-comment-input" class="form-control" placeholder="Operator notes or override reason..." rows="2" style="font-size:0.8rem;"></textarea>
+              <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:0.4rem;">
+                <button id="btn-review-approve" class="btn btn-success" style="font-size:0.75rem; padding:0.35rem;"><i class="ph ph-check-fat"></i> Approve</button>
+                <button id="btn-review-reject" class="btn btn-danger" style="font-size:0.75rem; padding:0.35rem; background:var(--reject-color);"><i class="ph ph-x-circle"></i> Reject</button>
+                <button id="btn-review-reinspect" class="btn" style="font-size:0.75rem; padding:0.35rem;"><i class="ph ph-arrows-clockwise"></i> Re-inspect</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- VIEW 3: BATCH MANAGEMENT -->
+    <section id="view-batches" class="view-section">
+      <div style="display:grid; grid-template-columns: 1fr 2fr; gap:1.25rem;">
+        
+        <!-- Create Batch Card -->
+        <div class="glass-panel" style="padding:1.25rem;">
+          <h3 style="font-family:var(--font-heading); font-size:1.1rem; margin-bottom:1rem;">Create Production Batch</h3>
+          <form id="create-batch-form">
+            <div class="form-group">
+              <label class="form-label">Batch Code / Number</label>
+              <input type="text" id="batch-number-input" class="form-control" placeholder="e.g. BAT-2026-MILK-02" required />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Target Product</label>
+              <select id="batch-product-select" class="form-control" required></select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Expiry Rule Type</label>
+              <select id="batch-rule-type-select" class="form-control">
+                <option value="EXPLICIT_DATE">Explicit Date (Use By / Best Before)</option>
+                <option value="MONTHS_FROM_MANUFACTURE">Relative (Months from manufacture)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Manufacturing Date</label>
+              <input type="date" id="batch-mfg-input" class="form-control" />
+            </div>
+
+            <div class="form-group" id="group-batch-exp-date">
+              <label class="form-label">Expiry Date</label>
+              <input type="date" id="batch-exp-input" class="form-control" />
+            </div>
+
+            <div class="form-group" id="group-batch-duration" style="display:none;">
+              <label class="form-label">Shelf Life Duration (Months)</label>
+              <input type="number" id="batch-duration-input" class="form-control" placeholder="e.g. 4" min="1" max="60" value="4" />
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%; margin-top:0.5rem;">
+              <i class="ph ph-plus-circle"></i> Create & Set Active Batch
+            </button>
+          </form>
+        </div>
+
+        <!-- Batches Table -->
+        <div class="glass-panel" style="padding:1.25rem;">
+          <h3 style="font-family:var(--font-heading); font-size:1.1rem; margin-bottom:1rem;">Production Batches Overview</h3>
+          <div class="table-container">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Batch Number</th>
+                  <th>Product</th>
+                  <th>Mfg Date</th>
+                  <th>Exp Date</th>
+                  <th>Days Remaining</th>
+                  <th>Expiry Status</th>
+                  <th>Inspections</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="table-batches-body">
+                <!-- Dynamically Populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- BATCH DETAILS & TIMELINE MODAL -->
+      <div id="batch-details-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); backdrop-filter:blur(6px); z-index:9999; justify-content:center; align-items:center; padding:1rem;">
+        <div class="glass-panel" style="width:100%; max-width:600px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:12px; overflow:hidden;">
+          <div style="padding:1rem 1.25rem; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="font-family:var(--font-heading); font-size:1.1rem; margin:0; font-weight:700; color:var(--accent);"><i class="ph ph-package"></i> BATCH DETAILS & EXPIRY TIMELINE</h3>
+            <button id="btn-close-batch-modal" class="btn" style="padding:0.3rem 0.6rem; font-size:0.8rem;"><i class="ph ph-x"></i> Close</button>
+          </div>
+          
+          <div style="padding:1.25rem; display:flex; flex-direction:column; gap:1rem;">
+            <!-- Metadata Grid -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.6rem; font-size:0.85rem; background:rgba(0,0,0,0.2); padding:0.85rem; border-radius:6px;">
+              <div>Product: <strong id="bmodal-product-name">--</strong></div>
+              <div>Batch Number: <strong id="bmodal-batch-number">--</strong></div>
+              <div>Mfg Date: <strong id="bmodal-mfg-date">--</strong></div>
+              <div>Expiry Date: <strong id="bmodal-exp-date">--</strong></div>
+              <div>Expiry Rule: <strong id="bmodal-rule-type">--</strong></div>
+              <div>Days Remaining: <strong id="bmodal-days-remaining">--</strong></div>
+              <div>Expiry Status: <strong id="bmodal-expiry-status">--</strong></div>
+              <div>Inspections Logged: <strong id="bmodal-inspection-count">--</strong></div>
+            </div>
+
+            <!-- Expiry Timeline -->
+            <div style="border-top:1px dashed var(--border-color); padding-top:0.85rem;">
+              <h4 style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.75rem;"><i class="ph ph-git-commit"></i> BATCH LIFECYCLE TIMELINE</h4>
+              <div style="display:flex; justify-content:space-between; align-items:center; position:relative; padding:0 0.5rem;">
+                <div style="text-align:center; flex:1;">
+                  <div style="width:16px; height:16px; border-radius:50%; background:var(--primary); margin:0 auto 0.3rem auto;"></div>
+                  <div style="font-size:0.72rem; font-weight:700;">Manufactured</div>
+                  <div style="font-size:0.68rem; color:var(--text-dim);" id="btimeline-mfg">--</div>
+                </div>
+                <div style="height:2px; background:var(--border-color); flex:1;"></div>
+                <div style="text-align:center; flex:1;">
+                  <div id="btimeline-dot-normal" style="width:16px; height:16px; border-radius:50%; background:var(--pass-color); margin:0 auto 0.3rem auto;"></div>
+                  <div style="font-size:0.72rem; font-weight:700; color:var(--pass-color);">Normal Stock</div>
+                  <div style="font-size:0.68rem; color:var(--text-dim);">>30 Days</div>
+                </div>
+                <div style="height:2px; background:var(--border-color); flex:1;"></div>
+                <div style="text-align:center; flex:1;">
+                  <div id="btimeline-dot-soon" style="width:16px; height:16px; border-radius:50%; background:var(--warn-color); margin:0 auto 0.3rem auto;"></div>
+                  <div style="font-size:0.72rem; font-weight:700; color:var(--warn-color);">Expiring Soon</div>
+                  <div style="font-size:0.68rem; color:var(--text-dim);"><=30 Days</div>
+                </div>
+                <div style="height:2px; background:var(--border-color); flex:1;"></div>
+                <div style="text-align:center; flex:1;">
+                  <div id="btimeline-dot-expired" style="width:16px; height:16px; border-radius:50%; background:var(--reject-color); margin:0 auto 0.3rem auto;"></div>
+                  <div style="font-size:0.72rem; font-weight:700; color:var(--reject-color);">Expired</div>
+                  <div style="font-size:0.68rem; color:var(--text-dim);" id="btimeline-exp">--</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      </div>
+    </section>
+
+    <!-- VIEW 4: INSPECTION HISTORY & REPORTS -->
+    <section id="view-history" class="view-section">
+      <div class="glass-panel" style="padding:1.25rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+          <h3 style="font-family:var(--font-heading); font-size:1.1rem;">Inspection Audit Logs & Reports</h3>
+          <button class="btn" onclick="loadInspectionHistory()"><i class="ph ph-arrows-clockwise"></i> Refresh History</button>
+        </div>
+
+        <div class="table-container">
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Batch Code</th>
+                <th>Detected Product</th>
+                <th>Packaging Condition</th>
+                <th>Final Status</th>
+                <th>Timestamp</th>
+                <th>Report</th>
+              </tr>
+            </thead>
+            <tbody id="table-history-body">
+              <!-- Dynamically Populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Printable Inspection Report Modal -->
+  <div id="report-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div id="report-modal-content">
+        <!-- Dynamically Populated -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container for non-intrusive notifications -->
+  <div id="app-toast-container" style="position:fixed; bottom:1.5rem; right:1.5rem; z-index:10000; display:flex; flex-direction:column; gap:0.5rem; max-width:380px;"></div>
+
+  <!-- JavaScript App Logic -->
+  <script src="/static/js/ai_classifier.js"></script>
+  <script src="/static/js/camera.js"></script>
+  <script src="/static/js/charts.js"></script>
+  <script src="/static/js/demo_guide.js"></script>
+  <script src="/static/js/app.js"></script>
+
+
+</body>
+</html>

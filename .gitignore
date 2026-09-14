@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+ENV/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads & User data (keep directory structure)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# IDE / OS
+.DS_Store
+.vscode/
+.idea/
+
+# Byte-compiled / cache / PaddleX / PyTorch model caches
+.paddlex/
+.cache/
